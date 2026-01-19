@@ -127,6 +127,39 @@
             padding: 16px;
             box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
         }
+        .wallet {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 12px;
+            background: #0b0b0b;
+            border: 1px solid #1e1e1e;
+            border-radius: 12px;
+        }
+        .wallet .summary {
+            color: #e9e9e9;
+            font-size: 14px;
+            line-height: 1.3;
+        }
+        .wallet .summary b {
+            color: #ffcc00;
+            font-weight: 800;
+        }
+        .wallet .hint {
+            color: #9b9b9b;
+            font-size: 12px;
+            margin-top: 2px;
+        }
+        .wallet button {
+            background: #ffcc00;
+            color: #111;
+            font-weight: 800;
+        }
+        .wallet button:hover {
+            background: #ffd84a;
+        }
         .dice-container {
             display: flex;
             gap: 10px;
@@ -237,6 +270,13 @@
             <div class="board-title">骰子阵（方块棋盘）</div>
             <div id="grid" class="grid">
                 <div class="center-panel" id="center-panel">
+                    <div class="wallet">
+                        <div class="summary">
+                            <div>余额：<b id="balance">¥0</b>　|　剩余次数：<b id="plays">0</b></div>
+                            <div class="hint">充值 ¥100 = 10次（每次成本 ¥10）</div>
+                        </div>
+                        <button id="btn-recharge">充值¥100</button>
+                    </div>
                     <div class="dice-container" id="dice-container">
                         <!-- 骰子会动态生成 -->
                     </div>
@@ -323,17 +363,58 @@
         const flatBoard = buildRing(boardLayout);
 
         const prizeMap = {
-            1: 100, 2: 200, 3: 300, 4: 400, 5: 500,
-            6: 100, 7: 200, 8: 300, 9: 400, 10: 500,
-            11: 100, 12: 200, 13: 300, 14: 400, 15: 500,
-            16: 100, 17: 200, 18: 300, 19: 400, 20: 500,
-            21: 100, 22: 200, 23: 300, 24: 400, 25: 500,
-            26: 100, 27: 6000, 28: 500, 29: 400, 30: 300
+            // 按截图设置：数字格对应奖金（可为负数）
+            5: 400,
+            6: 1400,
+            7: 100,
+            8: 1200,
+            9: 500,
+            10: 1000,
+            11: 200,
+            12: 1200,
+            13: 600,
+            14: 1000,
+            15: 200,
+            16: 1200,
+            17: 400,
+            18: 1000,
+            19: 300,
+            20: 1400,
+            21: 300,
+            22: 1000,
+            23: 200,
+            24: 1400,
+            25: 300,
+            26: 1200,
+            27: -580,
+            28: 1600,
+            29: 300,
+            30: 6000
         };
 
         let currentDirection = null; // 'clockwise' or 'counterclockwise'
         let totalGames = 0;
-        let totalLoss = 0;
+        let balance = 0;
+        let playsRemaining = 0;
+        let totalDeposit = 0;
+        let totalNet = 0;
+
+        const COST_PER_PLAY = 10;
+        const RECHARGE_AMOUNT = 100;
+        const PLAYS_PER_RECHARGE = 10;
+
+        function formatMoney(n) {
+            const sign = n < 0 ? '-' : '';
+            const abs = Math.abs(Math.round(n));
+            return `${sign}¥${abs}`;
+        }
+
+        function renderWallet() {
+            const balanceEl = document.getElementById('balance');
+            const playsEl = document.getElementById('plays');
+            if (balanceEl) balanceEl.textContent = formatMoney(balance);
+            if (playsEl) playsEl.textContent = String(playsRemaining);
+        }
 
         // 初始化棋盘
         function initBoard() {
@@ -357,10 +438,10 @@
                     numSpan.className = 'num';
                     numSpan.textContent = String(num);
 
-                    const prize = prizeMap[num] || 0;
+                    const prize = prizeMap[num] ?? 0;
                     const prizeSpan = document.createElement('div');
                     prizeSpan.className = 'prize';
-                    prizeSpan.textContent = prize ? `¥${prize}` : '';
+                    prizeSpan.textContent = prize === 0 ? '' : formatMoney(prize);
 
                     cell.appendChild(numSpan);
                     cell.appendChild(prizeSpan);
@@ -418,19 +499,17 @@
         function showResult(finalNum, prize, isTrap) {
             const resultDiv = document.getElementById('result');
             const statsDiv = document.getElementById('stats');
-            
-            if (isTrap) {
-                resultDiv.innerHTML = `<span style="color:#ff6b6b">❌ 落入陷阱！你什么也没得到。</span>`;
-            } else {
-                resultDiv.innerHTML = `<span style="color:#4caf50">🎉 恭喜！你停在第${finalNum}格，获得 ¥${prize}！</span>`;
-            }
 
-            // 更新统计
-            totalGames++;
-            if (isTrap || prize < 297) {
-                totalLoss += 297 - (prize || 0);
-            }
-            statsDiv.textContent = `已玩${totalGames}次 | 总亏损：¥${totalLoss}`;
+            const payoutText = isTrap ? '¥0（陷阱）' : formatMoney(prize);
+            const netThisPlay = (isTrap ? 0 : prize) - COST_PER_PLAY;
+            const netColor = netThisPlay >= 0 ? '#4caf50' : '#ff6b6b';
+
+            resultDiv.innerHTML = `
+                <div>你停在第<strong>${finalNum}</strong>格，派奖：<strong>${payoutText}</strong></div>
+                <div style="margin-top:6px; color:${netColor}">本次净收益：<strong>${formatMoney(netThisPlay)}</strong>（成本 ${formatMoney(COST_PER_PLAY)}）</div>
+            `;
+
+            statsDiv.textContent = `已玩${totalGames}次 | 充值：${formatMoney(totalDeposit)} | 余额：${formatMoney(balance)} | 总盈亏：${formatMoney(totalNet)}`;
         }
 
         // 主游戏逻辑
@@ -446,11 +525,30 @@
             markTraps(currentDirection);
         });
 
+        document.getElementById('btn-recharge').addEventListener('click', () => {
+            balance += RECHARGE_AMOUNT;
+            playsRemaining += PLAYS_PER_RECHARGE;
+            totalDeposit += RECHARGE_AMOUNT;
+            renderWallet();
+
+            const statsDiv = document.getElementById('stats');
+            statsDiv.textContent = `已玩${totalGames}次 | 充值：${formatMoney(totalDeposit)} | 余额：${formatMoney(balance)} | 总盈亏：${formatMoney(totalNet)}`;
+        });
+
         document.getElementById('btn-roll').addEventListener('click', () => {
             if (!currentDirection) {
                 alert('请先选择方向！');
                 return;
             }
+
+            if (playsRemaining <= 0) {
+                alert('剩余次数不足，请先充值 ¥100（获得 10 次）');
+                return;
+            }
+
+            // 扣除本次成本
+            playsRemaining -= 1;
+            balance -= COST_PER_PLAY;
 
             const diceValues = rollDice();
             const totalSteps = diceValues.reduce((a, b) => a + b, 0);
@@ -471,6 +569,12 @@
 
             const prize = prizeMap[finalNum] || 0;
 
+            const payout = isTrap ? 0 : prize;
+            balance += payout;
+            totalGames++;
+            totalNet += payout - COST_PER_PLAY;
+            renderWallet();
+
             // 高亮起始格和终点格
             const cells = document.querySelectorAll('.cell');
             cells.forEach(cell => {
@@ -489,6 +593,7 @@
         // 初始化
         window.onload = () => {
             initBoard();
+            renderWallet();
         };
     </script>
 </body>
