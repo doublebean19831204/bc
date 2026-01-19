@@ -113,6 +113,12 @@
             opacity: 0.95;
         }
 
+        .cell.path {
+            outline: 4px solid rgba(255, 204, 0, 0.95);
+            outline-offset: -4px;
+            filter: brightness(1.02);
+        }
+
         .center-panel {
             grid-column: 2 / span 7;
             grid-row: 2 / span 4;
@@ -362,6 +368,66 @@
 
         const flatBoard = buildRing(boardLayout);
 
+        function directionLabel(direction) {
+            return direction === 'clockwise' ? '顺时针' : '逆时针';
+        }
+
+        function getCellByNum(num) {
+            return document.querySelector(`.cell[data-num="${num}"]`);
+        }
+
+        function computePathNums(startNum, steps, direction) {
+            const path = [startNum];
+            const startIndex = flatBoard.indexOf(startNum);
+            if (startIndex === -1) return path;
+
+            const len = flatBoard.length;
+            let idx = startIndex;
+            for (let i = 0; i < steps; i++) {
+                idx = direction === 'clockwise'
+                    ? (idx + 1) % len
+                    : (idx - 1 + len) % len;
+                path.push(flatBoard[idx]);
+            }
+            return path;
+        }
+
+        function clearPathHighlight() {
+            document.querySelectorAll('.cell.path').forEach(el => el.classList.remove('path'));
+        }
+
+        function animatePath(pathNums, onDone) {
+            clearPathHighlight();
+
+            // 每步节奏（毫秒）
+            const stepMs = 180;
+            let i = 0;
+
+            function tick() {
+                if (i > 0) {
+                    const prev = getCellByNum(pathNums[i - 1]);
+                    if (prev) prev.classList.remove('path');
+                }
+
+                const cur = getCellByNum(pathNums[i]);
+                if (cur) cur.classList.add('path');
+
+                if (i === pathNums.length - 1) {
+                    // 停留一下再结束
+                    setTimeout(() => {
+                        if (cur) cur.classList.remove('path');
+                        if (typeof onDone === 'function') onDone();
+                    }, 260);
+                    return;
+                }
+
+                i++;
+                setTimeout(tick, stepMs);
+            }
+
+            tick();
+        }
+
         const prizeMap = {
             // 按截图设置：数字格对应奖金（可为负数）
             5: 400,
@@ -496,16 +562,33 @@
         }
 
         // 显示结果
-        function showResult(finalNum, prize, isTrap) {
+        function showResult(params) {
             const resultDiv = document.getElementById('result');
             const statsDiv = document.getElementById('stats');
+
+            const {
+                startNum,
+                finalNum,
+                steps,
+                direction,
+                diceValues,
+                prize,
+                isTrap,
+                pathNums
+            } = params;
 
             const payoutText = isTrap ? '¥0（陷阱）' : formatMoney(prize);
             const netThisPlay = (isTrap ? 0 : prize) - COST_PER_PLAY;
             const netColor = netThisPlay >= 0 ? '#4caf50' : '#ff6b6b';
 
+            const diceText = diceValues.join(', ');
+            const pathText = pathNums.join(' → ');
+
             resultDiv.innerHTML = `
-                <div>你停在第<strong>${finalNum}</strong>格，派奖：<strong>${payoutText}</strong></div>
+                <div>方向：<strong>${directionLabel(direction)}</strong>　|　骰子：<strong>${diceText}</strong>　|　总点数：<strong>${steps}</strong></div>
+                <div style="margin-top:6px;">从第<strong>${startNum}</strong>格出发，${directionLabel(direction)}走<strong>${steps}</strong>格 → 最后停在第<strong>${finalNum}</strong>格</div>
+                <div style="margin-top:6px; color:#aaa; font-size: 0.95em;">路径：${pathText}</div>
+                <div style="margin-top:10px;">派奖：<strong>${payoutText}</strong></div>
                 <div style="margin-top:6px; color:${netColor}">本次净收益：<strong>${formatMoney(netThisPlay)}</strong>（成本 ${formatMoney(COST_PER_PLAY)}）</div>
             `;
 
@@ -557,7 +640,9 @@
             // 如果起始格不存在，取最近的
             const validStart = flatBoard.includes(startNum) ? startNum : flatBoard[0];
             
-            const finalNum = calculatePath(validStart, totalSteps, currentDirection);
+            // 走格逻辑：起点=总点数格，步数=总点数（示例：8点 → 从8出发顺时针走8格 → 16）
+            const pathNums = computePathNums(validStart, totalSteps, currentDirection);
+            const finalNum = pathNums[pathNums.length - 1];
 
             // 判断是否是陷阱格（根据方向）
             let isTrap = false;
@@ -587,7 +672,19 @@
                 }
             });
 
-            showResult(finalNum, prize, isTrap);
+            showResult({
+                startNum: validStart,
+                finalNum,
+                steps: totalSteps,
+                direction: currentDirection,
+                diceValues,
+                prize,
+                isTrap,
+                pathNums
+            });
+
+            // 走格动画（不改变最终高亮，仅展示移动过程）
+            animatePath(pathNums);
         });
 
         // 初始化
