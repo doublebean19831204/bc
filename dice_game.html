@@ -376,14 +376,17 @@
             return document.querySelector(`.cell[data-num="${num}"]`);
         }
 
+        // 计步口径：起点算第1格。
+        // 若总点数为 S，则表示“从起点开始数到第 S 格”，因此实际移动步数为 (S - 1)。
         function computePathNums(startNum, steps, direction) {
             const path = [startNum];
             const startIndex = flatBoard.indexOf(startNum);
             if (startIndex === -1) return path;
 
+            const moves = Math.max(steps - 1, 0);
             const len = flatBoard.length;
             let idx = startIndex;
-            for (let i = 0; i < steps; i++) {
+            for (let i = 0; i < moves; i++) {
                 idx = direction === 'clockwise'
                     ? (idx + 1) % len
                     : (idx - 1 + len) % len;
@@ -586,7 +589,7 @@
 
             resultDiv.innerHTML = `
                 <div>方向：<strong>${directionLabel(direction)}</strong>　|　骰子：<strong>${diceText}</strong>　|　总点数：<strong>${steps}</strong></div>
-                <div style="margin-top:6px;">从第<strong>${startNum}</strong>格出发，${directionLabel(direction)}走<strong>${steps}</strong>格 → 最后停在第<strong>${finalNum}</strong>格</div>
+                <div style="margin-top:6px;">从第<strong>${startNum}</strong>格开始（算第1格），${directionLabel(direction)}数到第<strong>${steps}</strong>格 → 停在第<strong>${finalNum}</strong>格</div>
                 <div style="margin-top:6px; color:#aaa; font-size: 0.95em;">路径：${pathText}</div>
                 <div style="margin-top:10px;">派奖：<strong>${payoutText}</strong></div>
                 <div style="margin-top:6px; color:${netColor}">本次净收益：<strong>${formatMoney(netThisPlay)}</strong>（成本 ${formatMoney(COST_PER_PLAY)}）</div>
@@ -640,7 +643,7 @@
             // 如果起始格不存在，取最近的
             const validStart = flatBoard.includes(startNum) ? startNum : flatBoard[0];
             
-            // 走格逻辑：起点=总点数格，步数=总点数（示例：8点 → 从8出发顺时针走8格 → 16）
+            // 走格逻辑：摇到几就从几开始数；起点算第1格，总点数 S 表示数到第 S 格（移动 S-1 步）
             const pathNums = computePathNums(validStart, totalSteps, currentDirection);
             const finalNum = pathNums[pathNums.length - 1];
 
