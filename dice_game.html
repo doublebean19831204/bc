@@ -215,6 +215,10 @@
                     box-sizing: border-box;
                     gap: 6px;
                 }
+                .pips > div {
+                    display: grid;
+                    place-items: center;
+                }
                 .pip {
                     width: 10px;
                     height: 10px;
@@ -223,8 +227,33 @@
                     box-shadow:
                         0 1px 1px rgba(0, 0, 0, 0.25),
                         inset 0 -1px 1px rgba(0, 0, 0, 0.2);
-                    justify-self: center;
-                    align-self: center;
+                }
+
+                /* 2D 回退层：当浏览器/设置不支持 3D 时，至少显示当前点数 */
+                .overlay {
+                    position: absolute;
+                    inset: 0;
+                    border-radius: 12px;
+                    background: linear-gradient(145deg, #ff5a67, #e33948);
+                    border: 1px solid rgba(255, 255, 255, 0.25);
+                    display: grid;
+                    place-items: center;
+                    backface-visibility: hidden;
+                }
+                @supports (transform-style: preserve-3d) {
+                    .overlay {
+                        display: none;
+                    }
+                }
+                @supports not (transform-style: preserve-3d) {
+                    .cube {
+                        transform: none;
+                    }
+                    .cube.rolling {
+                        transform: rotate(360deg);
+                    }
+                    /* 不支持 3D 时隐藏六面，避免渲染异常 */
+                    .face { display: none; }
                 }
 
         .face::after {
@@ -598,6 +627,10 @@
             diceContainer.innerHTML = '';
             const diceValues = [];
 
+            const supports3D = typeof CSS !== 'undefined'
+                && typeof CSS.supports === 'function'
+                && CSS.supports('transform-style', 'preserve-3d');
+
             function createPips(value) {
                 // 3x3 位置索引（1..9）：
                 // 1 2 3
@@ -634,22 +667,31 @@
                 const cube = document.createElement('div');
                 cube.className = 'cube rolling';
 
-                // 标准六面骰：相对面和为7：1↔6、2↔5、3↔4
-                // 面的放置：Front=1, Back=6, Right=2, Left=5, Top=3, Bottom=4
-                const faces = [
-                    { cls: 'front', n: 1 },
-                    { cls: 'back', n: 6 },
-                    { cls: 'right', n: 2 },
-                    { cls: 'left', n: 5 },
-                    { cls: 'top', n: 3 },
-                    { cls: 'bottom', n: 4 },
-                ];
-                for (const f of faces) {
-                    const face = document.createElement('div');
-                    face.className = `face ${f.cls}`;
-                    face.setAttribute('aria-label', `点数 ${f.n}`);
-                    face.appendChild(createPips(f.n));
-                    cube.appendChild(face);
+                // 2D 回退：无论如何先放一个“正面显示”的点阵层（支持 3D 时会被 CSS 隐藏）
+                const overlay = document.createElement('div');
+                overlay.className = 'overlay';
+                overlay.setAttribute('aria-label', `点数 ${value}`);
+                overlay.appendChild(createPips(value));
+                cube.appendChild(overlay);
+
+                if (supports3D) {
+                    // 标准六面骰：相对面和为7：1↔6、2↔5、3↔4
+                    // 面的放置：Front=1, Back=6, Right=2, Left=5, Top=3, Bottom=4
+                    const faces = [
+                        { cls: 'front', n: 1 },
+                        { cls: 'back', n: 6 },
+                        { cls: 'right', n: 2 },
+                        { cls: 'left', n: 5 },
+                        { cls: 'top', n: 3 },
+                        { cls: 'bottom', n: 4 },
+                    ];
+                    for (const f of faces) {
+                        const face = document.createElement('div');
+                        face.className = `face ${f.cls}`;
+                        face.setAttribute('aria-label', `点数 ${f.n}`);
+                        face.appendChild(createPips(f.n));
+                        cube.appendChild(face);
+                    }
                 }
 
                 // 先播放滚动动画，稍后停在正确点数
