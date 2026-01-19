@@ -22,17 +22,12 @@
             color: #ffcc00;
             margin-bottom: 10px;
         }
-        .game-area {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
         .board {
             background: #222;
             border-radius: 12px;
             padding: 20px;
-            min-width: 400px;
+            max-width: 920px;
+            margin: 0 auto;
         }
         .board-title {
             text-align: center;
@@ -42,49 +37,101 @@
         }
         .grid {
             display: grid;
-            grid-template-columns: repeat(9, 1fr);
-            gap: 5px;
-            margin-bottom: 15px;
+            --tile: 64px;
+            grid-template-columns: repeat(9, var(--tile));
+            grid-template-rows: repeat(6, var(--tile));
+            gap: 6px;
+            justify-content: center;
+            align-content: center;
+            margin: 0 auto 12px;
+            padding: 12px;
+            background: #111;
+            border-radius: 14px;
+            border: 1px solid #333;
+            position: relative;
         }
         .cell {
-            width: 40px;
-            height: 40px;
+            background: #f6f6f6;
+            border: 2px solid #0e0e0e;
+            border-radius: 10px;
+            font-weight: 800;
+            color: #0e0e0e;
+            cursor: default;
+            transition: transform 0.12s ease, filter 0.12s ease, background 0.12s ease;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: #333;
-            border: 1px solid #555;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s;
+            user-select: none;
         }
-        .cell:hover {
-            background: #444;
+        .cell .num {
+            font-size: 18px;
+            line-height: 1;
+        }
+        .cell .prize {
+            margin-top: 4px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #ff4757;
+            opacity: 0.95;
         }
         .cell.start {
             background: #ff6b6b;
             color: white;
+            border-color: #ff6b6b;
         }
-        .cell.trap {
+        .cell.start .prize {
+            color: #fff;
+        }
+        .cell.unreachable {
+            background: #4b4b4b;
+            color: #c7c7c7;
+            border-color: #4b4b4b;
+        }
+        .cell.unreachable .prize {
+            color: #d0d0d0;
+            opacity: 0.8;
+        }
+        .cell.landed-trap {
             background: #6b6b6b;
-            color: #aaa;
+            color: #f3f3f3;
+            border-color: #6b6b6b;
+            filter: saturate(0.9);
+        }
+        .cell.landed-trap .prize {
+            color: #fff;
+            opacity: 0.9;
         }
         .cell.win {
             background: #4caf50;
             color: white;
+            border-color: #4caf50;
+            transform: translateY(-1px);
         }
-        .dice-area {
-            background: #222;
-            border-radius: 12px;
-            padding: 20px;
-            min-width: 300px;
+        .cell.win .prize {
+            color: #fff;
+            opacity: 0.95;
+        }
+
+        .center-panel {
+            grid-column: 2 / span 7;
+            grid-row: 2 / span 4;
+            background: #000;
+            border-radius: 14px;
+            border: 1px solid #222;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 16px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
         }
         .dice-container {
             display: flex;
             gap: 10px;
             justify-content: center;
-            margin: 20px 0;
+            flex-wrap: wrap;
         }
         .die {
             width: 60px;
@@ -103,7 +150,7 @@
             display: flex;
             gap: 10px;
             justify-content: center;
-            margin-top: 20px;
+            flex-wrap: wrap;
         }
         button {
             padding: 10px 20px;
@@ -119,7 +166,7 @@
             background: #ff4757;
         }
         .result {
-            margin-top: 20px;
+            margin-top: 12px;
             padding: 15px;
             background: #333;
             border-radius: 8px;
@@ -160,7 +207,7 @@
         .current-direction {
             font-size: 1.2em;
             text-align: center;
-            margin: 10px 0;
+            margin: 0;
             color: #ffcc00;
         }
         .stats {
@@ -169,31 +216,40 @@
             color: #aaa;
             text-align: center;
         }
+
+        @media (max-width: 900px) {
+            .grid { --tile: 52px; }
+            .die { width: 52px; height: 52px; font-size: 22px; }
+        }
+        @media (max-width: 560px) {
+            body { padding: 12px; }
+            .grid { --tile: 44px; gap: 5px; padding: 10px; }
+            .die { width: 46px; height: 46px; font-size: 20px; }
+            button { padding: 9px 14px; font-size: 14px; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🎲 大富翁骰子阵 —— 庄家的数学陷阱</h1>
-        
-        <div class="game-area">
-            <div class="board">
-                <div class="board-title">骰子阵单棋盘</div>
-                <div id="grid" class="grid"></div>
-                <div class="current-direction" id="direction-display">请选择方向 →</div>
-                <div class="result" id="result">点击“摇骰子”开始游戏</div>
-                <div class="stats" id="stats">已玩0次 | 总亏损：¥0</div>
-            </div>
 
-            <div class="dice-area">
-                <div class="dice-container" id="dice-container">
-                    <!-- 骰子会动态生成 -->
-                </div>
-                <div class="controls">
-                    <button id="btn-clockwise">顺时针</button>
-                    <button id="btn-counterclockwise">逆时针</button>
-                    <button id="btn-roll">🎲 摇骰子</button>
+        <div class="board">
+            <div class="board-title">骰子阵（方块棋盘）</div>
+            <div id="grid" class="grid">
+                <div class="center-panel" id="center-panel">
+                    <div class="dice-container" id="dice-container">
+                        <!-- 骰子会动态生成 -->
+                    </div>
+                    <div class="controls">
+                        <button id="btn-clockwise">顺时针</button>
+                        <button id="btn-counterclockwise">逆时针</button>
+                        <button id="btn-roll">🎲 摇骰子</button>
+                    </div>
+                    <div class="current-direction" id="direction-display">请选择方向 →</div>
                 </div>
             </div>
+            <div class="result" id="result">点击“摇骰子”开始游戏</div>
+            <div class="stats" id="stats">已玩0次 | 总亏损：¥0</div>
         </div>
 
         <div class="info-panel">
@@ -225,12 +281,46 @@
 
     <script>
         // 游戏数据
-        const boardNumbers = [
-            [19, 17, 12, 15, 14, 13, 16, 11, 18],
-            [8, 6, 5, 4, 3, 2, 1, 9, 0],
-            [7, 10, 20, 21, 22, 23, 24, 25, 26],
-            [27, 28, 29, 30, 5, 4, 3, 2, 1]
+        // 参考截图：外圈为数字格，中间留白放骰子
+        const boardLayout = [
+            [10, 17, 12, 15, 14, 13, 16, 11, 18],
+            [19, null, null, null, null, null, null, null, 9],
+            [8,  null, null, null, null, null, null, null, 20],
+            [21, null, null, null, null, null, null, null, 7],
+            [6,  null, null, null, null, null, null, null, 22],
+            [23, 30, 25, 28, 27, 26, 29, 24, 5]
         ];
+
+        function buildRing(layout) {
+            const rows = layout.length;
+            const cols = layout[0].length;
+            const ring = [];
+
+            // top row
+            for (let c = 0; c < cols; c++) {
+                const v = layout[0][c];
+                if (v != null) ring.push(v);
+            }
+            // right column (excluding corners)
+            for (let r = 1; r < rows - 1; r++) {
+                const v = layout[r][cols - 1];
+                if (v != null) ring.push(v);
+            }
+            // bottom row (right to left)
+            for (let c = cols - 1; c >= 0; c--) {
+                const v = layout[rows - 1][c];
+                if (v != null) ring.push(v);
+            }
+            // left column (excluding corners, bottom to top)
+            for (let r = rows - 2; r >= 1; r--) {
+                const v = layout[r][0];
+                if (v != null) ring.push(v);
+            }
+
+            return ring;
+        }
+
+        const flatBoard = buildRing(boardLayout);
 
         const prizeMap = {
             1: 100, 2: 200, 3: 300, 4: 400, 5: 500,
@@ -248,14 +338,32 @@
         // 初始化棋盘
         function initBoard() {
             const grid = document.getElementById('grid');
+            const centerPanel = document.getElementById('center-panel');
             grid.innerHTML = '';
-            for (let row of boardNumbers) {
-                for (let num of row) {
-                    if (num === 0) continue;
+            grid.appendChild(centerPanel);
+
+            for (let r = 0; r < boardLayout.length; r++) {
+                for (let c = 0; c < boardLayout[r].length; c++) {
+                    const num = boardLayout[r][c];
+                    if (num == null) continue;
+
                     const cell = document.createElement('div');
                     cell.className = 'cell';
-                    cell.textContent = num;
-                    cell.dataset.num = num;
+                    cell.style.gridRow = String(r + 1);
+                    cell.style.gridColumn = String(c + 1);
+                    cell.dataset.num = String(num);
+
+                    const numSpan = document.createElement('div');
+                    numSpan.className = 'num';
+                    numSpan.textContent = String(num);
+
+                    const prize = prizeMap[num] || 0;
+                    const prizeSpan = document.createElement('div');
+                    prizeSpan.className = 'prize';
+                    prizeSpan.textContent = prize ? `¥${prize}` : '';
+
+                    cell.appendChild(numSpan);
+                    cell.appendChild(prizeSpan);
                     grid.appendChild(cell);
                 }
             }
@@ -279,30 +387,15 @@
 
         // 计算路径
         function calculatePath(startNum, steps, direction) {
-            // 扁平化棋盘为一维数组（按视频顺序）
-            const flatBoard = [
-                19, 17, 12, 15, 14, 13, 16, 11, 18,
-                8, 6, 5, 4, 3, 2, 1, 9,
-                7, 10, 20, 21, 22, 23, 24, 25, 26,
-                27, 28, 29, 30, 5, 4, 3, 2, 1
-            ];
-            
             // 找到起始位置索引
             let startIndex = flatBoard.indexOf(startNum);
             if (startIndex === -1) {
                 startIndex = 0; // fallback
             }
 
-            // 移动
-            let currentIndex = startIndex;
-            for (let i = 0; i < steps; i++) {
-                if (direction === 'clockwise') {
-                    currentIndex = (currentIndex + 1) % flatBoard.length;
-                } else {
-                    currentIndex = (currentIndex - 1 + flatBoard.length) % flatBoard.length;
-                }
-            }
-
+            const offset = direction === 'clockwise' ? steps : -steps;
+            const len = flatBoard.length;
+            const currentIndex = ((startIndex + (offset % len)) % len + len) % len;
             return flatBoard[currentIndex];
         }
 
@@ -312,11 +405,11 @@
             cells.forEach(cell => {
                 const num = parseInt(cell.dataset.num);
                 if (direction === 'clockwise' && num % 2 === 1) {
-                    cell.classList.add('trap');
+                    cell.classList.add('unreachable');
                 } else if (direction === 'counterclockwise' && num % 2 === 0) {
-                    cell.classList.add('trap');
+                    cell.classList.add('unreachable');
                 } else {
-                    cell.classList.remove('trap');
+                    cell.classList.remove('unreachable');
                 }
             });
         }
@@ -364,7 +457,7 @@
             const startNum = totalSteps; // 从总点数对应的格子开始
 
             // 如果起始格不存在，取最近的
-            const validStart = boardNumbers.flat().find(n => n === startNum) || 1;
+            const validStart = flatBoard.includes(startNum) ? startNum : flatBoard[0];
             
             const finalNum = calculatePath(validStart, totalSteps, currentDirection);
 
@@ -381,12 +474,12 @@
             // 高亮起始格和终点格
             const cells = document.querySelectorAll('.cell');
             cells.forEach(cell => {
-                cell.classList.remove('start', 'win');
+                cell.classList.remove('start', 'win', 'landed-trap');
                 if (parseInt(cell.dataset.num) === validStart) {
                     cell.classList.add('start');
                 }
                 if (parseInt(cell.dataset.num) === finalNum) {
-                    cell.classList.add(isTrap ? 'trap' : 'win');
+                    cell.classList.add(isTrap ? 'landed-trap' : 'win');
                 }
             });
 
